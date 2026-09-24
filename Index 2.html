@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Лабиринт — 25 уровней</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: #050510;
+    color: #fff;
+    font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+    overflow: hidden;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  #screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    z-index: 10;
+    background: radial-gradient(circle at 50% 40%, #12122a 0%, #050510 70%);
+    padding: 20px;
+    text-align: center;
+    overflow: hidden;
+  }
+  #screen.hidden { display: none; }
+  #screen::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at 15% 20%, rgba(0, 255, 200, 0.12), transparent 40%),
+      radial-gradient(circle at 85% 80%, rgba(180, 0, 255, 0.15), transparent 40%);
+    pointer-events: none;
+  }
+
+  h1 {
+    font-size: 44px;
+    margin: 0;
+    letter-spacing: 6px;
+    font-weight: 800;
+    background: linear-gradient(135deg, #00ffc8 0%, #7a5cff 50%, #ff2ec4 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: 0 0 40px rgba(0, 255, 200, 0.4);
+    animation: glowPulse 3s ease-in-out infinite;
+  }
+  @keyframes glowPulse {
+    0%, 100% { filter: drop-shadow(0 0 12px rgba(0, 255, 200, 0.5)); }
+    50%      { filter: drop-shadow(0 0 24px rgba(180, 0, 255, 0.7)); }
+  }
+
+  p {
+    font-size: 14px;
+    color: #8a8ab0;
+    margin: 0;
+    max-width: 380px;
+    line-height: 1.6;
+  }
+  .hint {
+    font-size: 13px;
+    color: #6a6a80;
+    margin-top: 4px;
+  }
+  .hint b { color: #00ffc8; }
+
+  #bigBtn {
+    padding: 18px 60px;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    background: linear-gradient(135deg, #00ffc8, #7a5cff);
+    color: #050510;
+    border: none;
+    border-radius: 14px;
+    cursor: pointer;
+    box-shadow:
+      0 0 20px rgba(0, 255, 200, 0.5),
+      0 0 40px rgba(122, 92, 255, 0.4),
+      inset 0 0 20px rgba(255, 255, 255, 0.2);
+    transition: transform 0.1s, box-shadow 0.2s;
+  }
+  #bigBtn:active {
+    transform: scale(0.96);
+    box-shadow:
+      0 0 30px rgba(0, 255, 200, 0.8),
+      0 0 60px rgba(122, 92, 255, 0.6);
+  }
+
+  #game {
+    position: absolute;
+    inset: 0;
+    display: none;
+    background: radial-gradient(circle at 50% 50%, #0a0a20 0%, #050510 80%);
+  }
+  #game.visible { display: block; }
+  #canvas { display: block; }
+
+  #info {
+    position: absolute;
+    top: 10px;
+    left: 14px;
+    font-size: 14px;
+    color: #00ffc8;
+    z-index: 5;
+    pointer-events: none;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-shadow: 0 0 10px rgba(0, 255, 200, 0.7);
+  }
+  #info .lvlNum {
+    color: #fff;
+    text-shadow: 0 0 12px rgba(122, 92, 255, 0.9);
+  }
+  #info .tag {
+    font-size: 10px;
+    color: #ff2ec4;
+    margin-left: 8px;
+    letter-spacing: 2px;
+    vertical-align: middle;
+    text-shadow: 0 0 8px rgba(255, 46, 196, 0.8);
+  }
+  #timer {
+    position: absolute;
+    top: 10px;
+    right: 14px;
+    font-size: 14px;
+    color: #8a8ab0;
+    z-index: 5;
+    pointer-events: none;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  #timer.low {
+    color: #ff2e6a;
+    text-shadow: 0 0 12px rgba(255, 46, 106, 0.8);
+    animation: blink 0.8s infinite;
+  }
+  @keyframes blink {
+    50% { opacity: 0.5; }
+  }
+
+  #pad {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: grid;
+    grid-template-columns: repeat(3, 62px);
+    grid-template-rows: repeat(3, 62px);
+    gap: 6px;
+    z-index: 5;
+  }
+  #pad button {
+    background: rgba(0, 255, 200, 0.08);
+    border: 1.5px solid rgba(0, 255, 200, 0.5);
+    color: #00ffc8;
+    font-size: 24px;
+    font-weight: 800;
+    border-radius: 12px;
+    cursor: pointer;
+    padding: 0;
+    touch-action: manipulation;
+    box-shadow:
+      0 0 12px rgba(0, 255, 200, 0.25),
+      inset 0 0 12px rgba(0, 255, 200, 0.1);
+    transition: all 0.1s;
+    text-shadow: 0 0 8px rgba(0, 255, 200, 0.9);
+  }
+  #pad button:active {
+    background: rgba(0, 255, 200, 0.35);
+    box-shadow:
+      0 0 24px rgba(0, 255, 200, 0.7),
+      inset 0 0 16px rgba(0, 255, 200, 0.4);
+    transform: scale(0.94);
+  }
+  #pad .e { visibility: hidden; pointer-events: none; }
+
+  #endScreen {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 50%, rgba(20, 20, 50, 0.98), rgba(5, 5, 16, 0.99));
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    z-index: 20;
+    padding: 20px;
+    text-align: center;
+  }
+  #endScreen.visible { display: flex; }
+  #endScreen h1 {
+    font-size: 32px;
+    letter-spacing: 3px;
+    margin: 0;
+  }
+  #endScreen p {
+    color: #a0a0c8;
+    margin: 0;
+    font-size: 16px;
+  }
+  #endScreen button {
+    padding: 15px 44px;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    background: linear-gradient(135deg, #00ffc8, #7a5cff);
+    color: #050510;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    min-width: 220px;
+    box-shadow: 0 0 20px rgba(0, 255, 200, 0.4);
+    transition: transform 0.1s;
+  }
+  #endScreen button:active { transform: scale(0.96); }
+  #endScreen button.secondary {
+    background: rgba(122, 92, 255, 0.15);
+    border: 1.5px solid rgba(122, 92, 255, 0.6);
+    color: #b8a8ff;
+    box-shadow: 0 0 16px rgba(122, 92, 255, 0.3);
+  }
+</style>
+</head>
+<body>
+
+<div id="screen">
+  <h1>ЛАБИРИНТ</h1>
+  <p>25 уровней. С 14-го — только один путь к финишу. Помоги гному пройти все испытания.</p>
+  <button id="bigBtn">ИГРАТЬ</button>
+  <p class="hint">или нажми <b>Enter</b></p>
+</div>
+
+<div id="game">
+  <canvas id="canvas"></canvas>
+  <div id="info">УРОВЕНЬ <span class="lvlNum" id="lvl">1</span> / 25<span class="tag" id="tag"></span></div>
+  <div id="timer">0:00</div>
+  <div id="pad">
+    <button class="e"></button>
+    <button data-d="up">↑</button>
+    <button class="e"></button>
+    <button data-d="left">←</button>
+    <button class="e"></button>
+    <button data-d="right">→</button>
+    <button class="e"></button>
+    <button data-d="down">↓</button>
+    <button class="e"></button>
+  </div>
+</div>
+
+<div id="endScreen">
+  <h1 id="endTitle">Победа!</h1>
+  <p id="endText"></p>
+  <button id="nextBtn">ДАЛЬШЕ</button>
+  <button class="secondary" id="menuBtn">В МЕНЮ</button>
+  <p class="hint">или нажми <b>Enter</b></p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var screen   = document.getElementById('screen');
+  var gameDiv  = document.getElementById('game');
+  var endScr   = document.getElementById('endScreen');
+  var bigBtn   = document.getElementById('bigBtn');
+  var nextBtn  = document.getElementById('nextBtn');
+  var menuBtn  = document.getElementById('menuBtn');
+  var endTitle = document.getElementById('endTitle');
+  var endText  = document.getElementById('endText');
+  var lvlSpan  = document.getElementById('lvl');
+  var tagSpan  = document.getElementById('tag');
+  var timerEl  = document.getElementById('timer');
+  var canvas   = document.getElementById('canvas');
+  var ctx      = canvas.getContext('2d');
+
+  var TOTAL_LEVELS = 25;
+
+  // ========== КОНФИГ 25 УРОВНЕЙ ==========
+  // perfect: true = только один путь к финишу (без петель)
+  // loops: доля петель (используется только если perfect = false)
+  // deadEnds: сколько длинных тупиков добавить
+  // falseGaps: сколько визуальных обманок
+  // time: лимит времени в секундах (0 = без лимита)
+  // tag: метка в HUD
+  var LEVELS = [
+    // --- Уровни 1–13: с развилками ---
+    { size: 6,  time: 0,   perfect: false, loops: 0.20, deadEnds: 0,  falseGaps: 0, tag: '' },
+    { size: 7,  time: 0,   perfect: false, loops: 0.22, deadEnds: 0,  falseGaps: 0, tag: '' },
+    { size: 8,  time: 0,   perfect: false, loops: 0.25, deadEnds: 0,  falseGaps: 0, tag: '' },
+    { size: 9,  time: 0,   perfect: false, loops: 0.28, deadEnds: 1,  falseGaps: 0, tag: '' },
+    { size: 10, time: 0,   perfect: false, loops: 0.32, deadEnds: 2,  falseGaps: 0, tag: '' },
+    { size: 11, time: 0,   perfect: false, loops: 0.36, deadEnds: 3,  falseGaps: 0, tag: '' },
+    { size: 12, time: 0,   perfect: false, loops: 0.40, deadEnds: 4,  falseGaps: 0, tag: 'РАЗВИЛКИ' },
+    { size: 13, time: 100, perfect: false, loops: 0.44, deadEnds: 5,  falseGaps: 0, tag: 'ТУПИКИ' },
+    { size: 14, time: 110, perfect: false, loops: 0.48, deadEnds: 6,  falseGaps: 1, tag: 'ОБМАНКИ' },
+    { size: 15, time: 115, perfect: false, loops: 0.52, deadEnds: 8,  falseGaps: 2, tag: 'СЛОЖНО' },
+    { size: 16, time: 120, perfect: false, loops: 0.56, deadEnds: 10, falseGaps: 3, tag: 'СЛОЖНО' },
+    { size: 17, time: 130, perfect: false, loops: 0.60, deadEnds: 12, falseGaps: 4, tag: 'КОШМАР' },
+    { size: 18, time: 140, perfect: false, loops: 0.65, deadEnds: 14, falseGaps: 5, tag: 'КОШМАР' },
+
+    // --- Уровни 14–25: ЕДИНСТВЕННЫЙ ПУТЬ (perfect maze) ---
+    { size: 16, time: 150, perfect: true, loops: 0, deadEnds: 0, falseGaps: 0, tag: '1 ПУТЬ' },
+    { size: 17, time: 160, perfect: true, loops: 0, deadEnds: 0, falseGaps: 0, tag: '1 ПУТЬ' },
+    { size: 18, time: 165, perfect: true, loops: 0, deadEnds: 0, falseGaps: 0, tag: '1 ПУТЬ' },
+    { size: 19, time: 175, perfect: true, loops: 0, deadEnds: 0, falseGaps: 0, tag: '1 ПУТЬ' },
+    { size: 20, time: 185, perfect: true, loops: 0, deadEnds: 0, falseGaps: 0, tag: '1 ПУТЬ' },
+    { size: 21, time: 195, perfect: true, loops: 0, deadEnds: 0, falseGaps: 0, tag: '1 ПУТЬ' },
+    { size: 22, time: 205, perfect: true, loops: 0, deadEnds: 0, falseGaps: 0, tag: '1 ПУТЬ' },
+    { size: 23, time: 215, perfect: true, loops: 0, deadEnds: 0, falseGaps: 0, tag: '1 ПУТЬ' },
+    { size: 24, time: 230, perfect: true, loops: 0, deadEnds: 0, falseGaps: 0, tag: '1 ПУТЬ' },
+    { size: 25, time: 245, perfect: true, loops: 0, deadEnds: 0, falseGaps: 0, tag: '1 ПУТЬ' },
+    { size: 27, time: 260, perfect: true, loops: 0, deadEnds: 0, falseGaps: 0, tag: 'ФИНАЛ' }
+  ];
+
+  var G = {
+    level: 1,
+    maze: null,
+    px: 0, py: 0,
+    gx: 0, gy: 0,
+    cell: 20,
+    offX: 0, offY: 0,
+    timeLimit: 0,
+    startTime: 0,
+    elapsed: 0,
+    running: false,
+    trail: [],
+    animX: 0, animY: 0,
+    stepPhase: 0,
+    falseGaps: []
+  };
+
+  var screenState = 'menu';
+
+  // ========== ГЕНЕРАЦИЯ ИДЕАЛЬНОГО ЛАБИРИНТА ==========
+  // Recursive Backtracker даёт лабиринт без единой петли —
+  // между любыми двумя клетками ровно один путь.
+  function makeMaze(cols, rows) {
+    var grid = [], visited = [], y, x;
+    for (y = 0; y < rows; y++) {
+      grid[y] = [];
+      visited[y] = [];
+      for (x = 0; x < cols; x++) {
+        grid[y][x] = [true, true, true, true];
+        visited[y][x] = false;
+      }
+    }
+    var cx = 0, cy = 0;
+    visited[cy][cx] = true;
+    var stack = [];
+    var dirs = [
+      [0, -1, 0, 2],
+      [1,  0, 1, 3],
+      [0,  1, 2, 0],
+      [-1, 0, 3, 1]
+    ];
+    while (true) {
+      var options = [];
+      for (var i = 0; i < 4; i++) {
+        var d = dirs[i];
+        var nx = cx + d[0], ny = cy + d[1];
+        if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && !visited[ny][nx]) {
+          options.push([nx, ny, d[2], d[3]]);
+        }
+      }
+      if (options.length) {
+        var pick = options[Math.floor(Math.random() * options.length)];
+        grid[cy][cx][pick[2]] = false;
+        grid[pick[1]][pick[0]][pick[3]] = false;
+        stack.push([cx, cy]);
+        cx = pick[0]; cy = pick[1];
+        visited[cy][cx] = true;
+      } else if (stack.length) {
+        var last = stack.pop();
+        cx = last[0]; cy = last[1];
+      } else {
+        break;
+      }
+    }
+    return grid;
+  }
+
+  // ========== ПРОВЕРКА ЕДИНСТВЕННОСТИ ПУТИ (BFS) ==========
+  // Считаем количество путей от старта до финиша (с ограничением).
+  // Если путей больше 1 — лабиринт не идеальный.
+  function countPaths(grid, start, goal, limit) {
+    var cols = grid[0].length, rows = grid.length;
+    // DFS с мемоизацией: paths[y][x] = число путей от (x,y) до финиша
+    var memo = [];
+    for (var y = 0; y < rows; y++) {
+      memo[y] = [];
+      for (var x = 0; x < cols; x++) memo[y][x] = -1;
+    }
+    var dirs = [[0,-1,0],[1,0,1],[0,1,2],[-1,0,3]];
+    var stack = [{x: start.x, y: start.y, state: 0}];
+    // Простая рекурсивная проверка — но в JS глубокий стек может переполниться,
+    // поэтому используем итеративный обход.
+    // Идём от финиша назад, считая количество путей до старта.
+    var counts = [];
+    for (var y2 = 0; y2 < rows; y2++) {
+      counts[y2] = [];
+      for (var x2 = 0; x2 < cols; x2++) counts[y2][x2] = 0;
+    }
+    // BFS-подобный обход: сколько путей ведёт в каждую клетку из старта
+    // (для дерева это всегда 1, для графа — может быть больше)
+    // Используем топологический обход через DFS
+    counts[start.y][start.x] = 1;
+    var order = [];
+    var q = [{x: start.x, y: start.y}];
+    var visited = [];
+    for (var y3 = 0; y3 < rows; y3++) {
+      visited[y3] = [];
+      for (var x3 = 0; x3 < cols; x3++) visited[y3][x3] = false;
+    }
+    visited[start.y][start.x] = true;
+    while (q.length) {
+      var cur = q.shift();
+      order.push(cur);
+      for (var di = 0; di < 4; di++) {
+        var dd = dirs[di];
+        var nx = cur.x + dd[0], ny = cur.y + dd[1];
+        if (nx < 0 || nx >= cols || ny < 0 || ny >= rows) continue;
+        if (grid[cur.y][cur.x][dd[2]]) continue;
+        if (!visited[ny][nx]) {
+          visited[ny][nx] = true;
+          q.push({x: nx, y: ny});
+        }
+      }
+    }
+    // Теперь распространяем счётчики вдоль порядка обхода
+    for (var oi = 0; oi < order.length; oi++) {
+      var cell = order[oi];
+      var cx2 = cell.x, cy2 = cell.y;
+      for (var di2 = 0; di2 < 4; di2++) {
+        var dd2 = dirs[di2];
+        var nx2 = cx2 + dd2[0], ny2 = cy2 + dd2[1];
+        if (nx2 < 0 || nx2 >= cols || ny2 < 0 || ny2 >= rows) continue;
+        if (grid[cy2][cx2][dd2[2]]) continue;
+        counts[ny2][nx2] += counts[cy2][cx2];
+        if (counts[ny2][nx2] > limit) counts[ny2][nx2] = limit;
+      }
+    }
+    return counts[goal.y][goal.x];
+  }
+
+  // ========== ПРОВЕРКА ДОСТИЖИМОСТИ (BFS) ==========
+  function isSolvable(grid, start, goal) {
+    var cols = grid[0].length, rows = grid.length;
+    var visited = [];
+    for (var y = 0; y < rows; y++) {
+      visited[y] = [];
+      for (var x = 0; x < cols; x++) visited[y][x] = false;
+    }
+    var q = [{x: start.x, y: start.y}];
+    visited[start.y][start.x] = true;
+    var dirs = [[0,-1,0],[1,0,1],[0,1,2],[-1,0,3]];
+    while (q.length) {
+      var cur = q.shift();
+      if (cur.x === goal.x && cur.y === goal.y) return true;
+      for (var di = 0; di < 4; di++) {
+        var dd = dirs[di];
+        var nx = cur.x + dd[0], ny = cur.y + dd[1];
+        if (nx < 0 || nx >= cols || ny < 0 || ny >= rows) continue;
+        if (grid[cur.y][cur.x][dd[2]]) continue;
+        if (visited[ny][nx]) continue;
+        visited[ny][nx] = true;
+        q.push({x: nx, y: ny});
+      }
+    }
+    return false;
+  }
+
+  // ========== ДОБАВЛЕНИЕ ПЕТЕЛЬ ==========
+  function addLoops(grid, ratio) {
+    var cols = grid[0].length, rows = grid.length;
+    var dirs = [[0,-1,0,2],[1,0,1,3],[0,1,2,0],[-1,0,3,1]];
+    var loops = Math.floor(cols * rows * ratio * 0.1);
+    var added = 0, attempts = 0;
+    while (added < loops && attempts < loops * 20) {
+      attempts++;
+      var rx = Math.floor(Math.random() * cols);
+      var ry = Math.floor(Math.random() * rows);
+      var rd = dirs[Math.floor(Math.random() * 4)];
+      var rnx = rx + rd[0], rny = ry + rd[1];
+      if (rnx < 0 || rnx >= cols || rny < 0 || rny >= rows) continue;
+      if (grid[ry][rx][rd[2]]) {
+        grid[ry][rx][rd[2]] = false;
+        grid[rny][rnx][rd[3]] = false;
+        added++;
+      }
+    }
+  }
+
+  // ========== ДОБАВЛЕНИЕ ТУПИКОВ ==========
+  function addDeadEnds(grid, count) {
+    var cols = grid[0].length, rows = grid.length;
+    var dirs = [
+      { dx: 0, dy: -1, w: 0, ow: 2 },
+      { dx: 1, dy: 0,  w: 1, ow: 3 },
+      { dx: 0, dy: 1,  w: 2, ow: 0 },
+      { dx: -1, dy: 0, w: 3, ow: 1 }
+    ];
+    var created = 0, attempts = 0;
+    while (created < count && attempts < count * 30) {
+      attempts++;
+      var x = 1 + Math.floor(Math.random() * (cols - 2));
+      var y = 1 + Math.floor(Math.random() * (rows - 2));
+      var d = dirs[Math.floor(Math.random() * 4)];
+      var length = 2 + Math.floor(Math.random() * 4);
+      var cx = x, cy = y, cdx = d.dx, cdy = d.dy, opened = 0;
+
+      for (var s = 0; s < length; s++) {
+        var nx2 = cx + cdx, ny2 = cy + cdy;
+        if (nx2 < 0 || nx2 >= cols || ny2 < 0 || ny2 >= rows) break;
+        var w, ow;
+        if (cdx === 0 && cdy === -1) { w = 0; ow = 2; }
+        else if (cdx === 1 && cdy === 0) { w = 1; ow = 3; }
+        else if (cdx === 0 && cdy === 1) { w = 2; ow = 0; }
+        else { w = 3; ow = 1; }
+        grid[cy][cx][w] = false;
+        grid[ny2][nx2][ow] = false;
+        cx = nx2; cy = ny2;
+        opened++;
+        if (Math.random() < 0.4) {
+          var turnDirs = dirs.filter(function (dd) {
+            return !(dd.dx === -cdx && dd.dy === -cdy) &&
+                   !(dd.dx === cdx && dd.dy === cdy);
+          });
+          if (turnDirs.length) {
+            var td = turnDirs[Math.floor(Math.random() * turnDirs.length)];
+            cdx = td.dx; cdy = td.dy;
+          }
+        }
+      }
+      if (opened >= 2) created++;
+    }
+  }
+
+  // ========== СОЗДАНИЕ УРОВНЯ ==========
+  function createLevel(n) {
+    var cfg = LEVELS[n - 1];
+    G.level = n;
+
+    var grid;
+    if (cfg.perfect) {
+      // Идеальный лабиринт: генерируем и проверяем, что путь ровно один.
+      // Если нет (баг генератора) — перегенерируем.
+      var attempts = 0;
+      do {
+        grid = makeMaze(cfg.size, cfg.size);
+        attempts++;
+        if (attempts > 20) break; // защита от бесконечного цикла
+      } while (!isSolvable(grid, {x: 0, y: 0}, {x: cfg.size - 1, y: cfg.size - 1}) ||
+               countPaths(grid, {x: 0, y: 0}, {x: cfg.size - 1, y: cfg.size - 1}, 2) !== 1);
+    } else {
+      grid = makeMaze(cfg.size, cfg.size);
+      if (cfg.loops > 0) addLoops(grid, cfg.loops);
+      if (cfg.deadEnds > 0) addDeadEnds(grid, cfg.deadEnds);
+    }
+    G.maze = grid;
+
+    // Обманки (только для не-perfect уровней)
+    G.falseGaps = [];
+    if (cfg.falseGaps > 0) {
+      var cols = G.maze[0].length, rows = G.maze.length;
+      var dirs = [[0,-1,0,2],[1,0,1,3],[0,1,2,0],[-1,0,3,1]];
+      var placed = 0, tries = 0;
+      while (placed < cfg.falseGaps && tries < cfg.falseGaps * 50) {
+        tries++;
+        var x = 1 + Math.floor(Math.random() * (cols - 2));
+        var y = 1 + Math.floor(Math.random() * (rows - 2));
+        if (x === 0 && y === 0) continue;
+        if (x === cfg.size - 1 && y === cfg.size - 1) continue;
+        var d = dirs[Math.floor(Math.random() * 4)];
+        var nx = x + d[0], ny = y + d[1];
+        if (nx < 0 || nx >= cols || ny < 0 || ny >= rows) continue;
+        if (G.maze[y][x][d[2]]) {
+          var dup = false;
+          for (var i = 0; i < G.falseGaps.length; i++) {
+            var fg = G.falseGaps[i];
+            if (fg.x === x && fg.y === y && fg.w === d[2]) { dup = true; break; }
+          }
+          if (dup) continue;
+          G.falseGaps.push({ x: x, y: y, w: d[2], nx: nx, ny: ny, ow: d[3] });
+          placed++;
+        }
+      }
+    }
+
+    G.px = 0;
+    G.py = 0;
+    G.animX = 0;
+    G.animY = 0;
+    G.gx = cfg.size - 1;
+    G.gy = cfg.size - 1;
+    G.timeLimit = cfg.time;
+    G.elapsed = 0;
+    G.startTime = performance.now();
+    G.trail = [{ x: 0, y: 0 }];
+    G.stepPhase = 0;
+
+    lvlSpan.textContent = n;
+    tagSpan.textContent = cfg.tag ? '· ' + cfg.tag : '';
+  }
+
+  // ========== РАЗМЕР ==========
+  function resize() {
+    var vw = window.innerWidth;
+    var vh = window.innerHeight;
+    canvas.width = vw;
+    canvas.height = vh;
+    canvas.style.width = vw + 'px';
+    canvas.style.height = vh + 'px';
+
+    if (!G.maze) return;
+    var cols = G.maze[0].length;
+    var rows = G.maze.length;
+    var topPad = 44;
+    var bottomPad = 220;
+    var sidePad = 10;
+    var availW = vw - sidePad * 2;
+    var availH = vh - topPad - bottomPad;
+    var cell = Math.floor(Math.min(availW / cols, availH / rows));
+    if (cell < 4) cell = 4;
+    G.cell = cell;
+    G.offX = Math.floor((vw - cell * cols) / 2);
+    G.offY = Math.floor(topPad + (availH - cell * rows) / 2);
+  }
+
+  // ========== ГНОМИК ==========
+  function drawGnome(cx, cy, cell) {
+    var r = cell * 0.42;
+    var bounce = Math.sin(G.stepPhase) * cell * 0.04;
+
+    ctx.save();
+    ctx.translate(cx, cy + bounce);
+
+    var glowR = cell * 1.4;
+    var glow = ctx.createRadialGradient(0, cell * 0.15, 0, 0, cell * 0.15, glowR);
+    glow.addColorStop(0, 'rgba(0, 255, 140, 0.55)');
+    glow.addColorStop(0.5, 'rgba(0, 255, 200, 0.2)');
+    glow.addColorStop(1, 'rgba(0, 255, 200, 0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(0, cell * 0.15, glowR, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#2e7d4a';
+    ctx.beginPath();
+    ctx.ellipse(0, r * 0.35, r * 0.5, r * 0.55, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#f4c7a0';
+    ctx.beginPath();
+    ctx.arc(0, -r * 0.15, r * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#e8e8f0';
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.4, r * 0.0);
+    ctx.quadraticCurveTo(-r * 0.42, r * 0.55, 0, r * 0.6);
+    ctx.quadraticCurveTo(r * 0.42, r * 0.55, r * 0.4, r * 0.0);
+    ctx.quadraticCurveTo(r * 0.25, r * 0.25, 0, r * 0.28);
+    ctx.quadraticCurveTo(-r * 0.25, r * 0.25, -r * 0.4, r * 0.0);
+    ctx.closePath();
+    ctx.fill();
+
+    var hatGrad = ctx.createLinearGradient(0, -r * 1.4, 0, -r * 0.1);
+    hatGrad.addColorStop(0, '#00ff88');
+    hatGrad.addColorStop(1, '#0d8040');
+    ctx.fillStyle = hatGrad;
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.48, -r * 0.25);
+    ctx.quadraticCurveTo(-r * 0.3, -r * 1.1, r * 0.35, -r * 1.15);
+    ctx.quadraticCurveTo(r * 0.55, -r * 1.15, r * 0.5, -r * 0.95);
+    ctx.quadraticCurveTo(r * 0.4, -r * 1.0, r * 0.15, -r * 0.85);
+    ctx.quadraticCurveTo(r * 0.3, -r * 0.55, r * 0.48, -r * 0.25);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = 'rgba(180, 255, 220, 0.4)';
+    ctx.beginPath();
+    ctx.ellipse(-r * 0.15, -r * 0.75, r * 0.1, r * 0.25, -0.3, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(0, 255, 140, 0.9)';
+    ctx.lineWidth = Math.max(1, cell * 0.03);
+    ctx.shadowColor = '#00ff88';
+    ctx.shadowBlur = cell * 0.4;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = '#e8e8f0';
+    ctx.beginPath();
+    ctx.arc(r * 0.5, -r * 1.05, r * 0.12, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#050510';
+    ctx.beginPath();
+    ctx.arc(-r * 0.13, -r * 0.18, r * 0.055, 0, Math.PI * 2);
+    ctx.arc( r * 0.13, -r * 0.18, r * 0.055, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(-r * 0.11, -r * 0.2, r * 0.02, 0, Math.PI * 2);
+    ctx.arc( r * 0.15, -r * 0.2, r * 0.02, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = 'rgba(255, 150, 150, 0.5)';
+    ctx.beginPath();
+    ctx.arc(-r * 0.28, r * 0.02, r * 0.08, 0, Math.PI * 2);
+    ctx.arc( r * 0.28, r * 0.02, r * 0.08, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#f4c7a0';
+    ctx.beginPath();
+    ctx.arc(-r * 0.5, r * 0.3, r * 0.11, 0, Math.PI * 2);
+    ctx.arc( r * 0.5, r * 0.3, r * 0.11, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#3a2a1a';
+    ctx.beginPath();
+    ctx.ellipse(-r * 0.25, r * 0.85, r * 0.18, r * 0.1, 0, 0, Math.PI * 2);
+    ctx.ellipse( r * 0.25, r * 0.85, r * 0.18, r * 0.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  // ========== ОТРИСОВКА ==========
+  function draw() {
+    if (!G.maze) return;
+    var cell = G.cell;
+    var cols = G.maze[0].length;
+    var rows = G.maze.length;
+    var ox = G.offX;
+    var oy = G.offY;
+
+    ctx.fillStyle = '#050510';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    var boardW = cell * cols;
+    var boardH = cell * rows;
+
+    var fieldGlow = ctx.createRadialGradient(
+      ox + boardW / 2, oy + boardH / 2, 0,
+      ox + boardW / 2, oy + boardH / 2, Math.max(boardW, boardH) * 0.7
+    );
+    fieldGlow.addColorStop(0, 'rgba(122, 92, 255, 0.12)');
+    fieldGlow.addColorStop(1, 'rgba(122, 92, 255, 0)');
+    ctx.fillStyle = fieldGlow;
+    ctx.fillRect(ox - cell, oy - cell, boardW + cell * 2, boardH + cell * 2);
+
+    ctx.fillStyle = '#0a0a1e';
+    ctx.fillRect(ox, oy, boardW, boardH);
+
+    ctx.strokeStyle = 'rgba(122, 92, 255, 0.08)';
+    ctx.lineWidth = 1;
+    for (var gx = 1; gx < cols; gx++) {
+      ctx.beginPath();
+      ctx.moveTo(ox + gx * cell, oy);
+      ctx.lineTo(ox + gx * cell, oy + boardH);
+      ctx.stroke();
+    }
+    for (var gy = 1; gy < rows; gy++) {
+      ctx.beginPath();
+      ctx.moveTo(ox, oy + gy * cell);
+      ctx.lineTo(ox + boardW, oy + gy * cell);
+      ctx.stroke();
+    }
+
+    var wallW = Math.max(2, cell * 0.14);
+    var half = wallW / 2;
+
+    ctx.shadowColor = '#7a5cff';
+    ctx.shadowBlur = cell * 0.6;
+    ctx.strokeStyle = '#7a5cff';
+    ctx.lineWidth = wallW;
+    ctx.lineCap = 'round';
+
+    for (var y = 0; y < rows; y++) {
+      for (var x = 0; x < cols; x++) {
+        var c = G.maze[y][x];
+        var px = ox + x * cell;
+        var py = oy + y * cell;
+        ctx.beginPath();
+        if (c[0]) { ctx.moveTo(px, py + half); ctx.lineTo(px + cell, py + half); }
+        if (c[1]) { ctx.moveTo(px + cell - half, py); ctx.lineTo(px + cell - half, py + cell); }
+        if (c[2]) { ctx.moveTo(px, py + cell - half); ctx.lineTo(px + cell, py + cell - half); }
+        if (c[3]) { ctx.moveTo(px + half, py); ctx.lineTo(px + half, py + cell); }
+        ctx.stroke();
+      }
+    }
+
+    ctx.shadowBlur = cell * 0.3;
+    ctx.shadowColor = '#c8b0ff';
+    ctx.strokeStyle = '#c8b0ff';
+    ctx.lineWidth = Math.max(1, wallW * 0.4);
+
+    for (var y2 = 0; y2 < rows; y2++) {
+      for (var x2 = 0; x2 < cols; x2++) {
+        var c2 = G.maze[y2][x2];
+        var px2 = ox + x2 * cell;
+        var py2 = oy + y2 * cell;
+        ctx.beginPath();
+        if (c2[0]) { ctx.moveTo(px2, py2 + half); ctx.lineTo(px2 + cell, py2 + half); }
+        if (c2[1]) { ctx.moveTo(px2 + cell - half, py2); ctx.lineTo(px2 + cell - half, py2 + cell); }
+        if (c2[2]) { ctx.moveTo(px2, py2 + cell - half); ctx.lineTo(px2 + cell, py2 + cell - half); }
+        if (c2[3]) { ctx.moveTo(px2 + half, py2); ctx.lineTo(px2 + half, py2 + cell); }
+        ctx.stroke();
+      }
+    }
+    ctx.shadowBlur = 0;
+
+    // Обманки — стираем стену визуально
+    for (var f = 0; f < G.falseGaps.length; f++) {
+      var fg = G.falseGaps[f];
+      var fx = ox + fg.x * cell;
+      var fy = oy + fg.y * cell;
+      ctx.fillStyle = '#0a0a1e';
+      if (fg.w === 0) ctx.fillRect(fx - 1, fy - half - 1, cell + 2, wallW + 2);
+      else if (fg.w === 1) ctx.fillRect(fx + cell - half - 1, fy - 1, wallW + 2, cell + 2);
+      else if (fg.w === 2) ctx.fillRect(fx - 1, fy + cell - half - 1, cell + 2, wallW + 2);
+      else if (fg.w === 3) ctx.fillRect(fx - half - 1, fy - 1, wallW + 2, cell + 2);
+    }
+
+    // Старт
+    var startGrad = ctx.createRadialGradient(
+      ox + cell / 2, oy + cell / 2, 0,
+      ox + cell / 2, oy + cell / 2, cell
+    );
+    startGrad.addColorStop(0, 'rgba(0, 255, 140, 0.35)');
+    startGrad.addColorStop(1, 'rgba(0, 255, 140, 0)');
+    ctx.fillStyle = startGrad;
+    ctx.fillRect(ox - cell, oy - cell, cell * 3, cell * 3);
+
+    // Финиш
+    var finishX = ox + G.gx * cell;
+    var finishY = oy + G.gy * cell;
+    var pulse = 0.5 + Math.sin(performance.now() * 0.004) * 0.3;
+
+    var endGrad = ctx.createRadialGradient(
+      finishX + cell / 2, finishY + cell / 2, 0,
+      finishX + cell / 2, finishY + cell / 2, cell * 1.2
+    );
+    endGrad.addColorStop(0, 'rgba(255, 46, 196, ' + (0.5 * pulse + 0.3) + ')');
+    endGrad.addColorStop(1, 'rgba(255, 46, 196, 0)');
+    ctx.fillStyle = endGrad;
+    ctx.fillRect(finishX - cell, finishY - cell, cell * 3, cell * 3);
+
+    ctx.strokeStyle = '#ff2ec4';
+    ctx.shadowColor = '#ff2ec4';
+    ctx.shadowBlur = cell * 0.8 * pulse;
+    ctx.lineWidth = Math.max(2, cell * 0.1);
+    ctx.strokeRect(finishX + 3, finishY + 3, cell - 6, cell - 6);
+    ctx.shadowBlur = 0;
+
+    // След
+    if (G.trail.length > 1) {
+      ctx.strokeStyle = 'rgba(0, 255, 140, 0.5)';
+      ctx.shadowColor = '#00ff88';
+      ctx.shadowBlur = cell * 0.5;
+      ctx.lineWidth = Math.max(2, cell * 0.13);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      for (var i = 0; i < G.trail.length; i++) {
+        var p = G.trail[i];
+        var tpx = ox + p.x * cell + cell / 2;
+        var tpy = oy + p.y * cell + cell / 2;
+        if (i === 0) ctx.moveTo(tpx, tpy);
+        else ctx.lineTo(tpx, tpy);
+      }
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+
+    // Гномик
+    var targetX = G.px;
+    var targetY = G.py;
+    var lerpSpeed = 0.35;
+    G.animX += (targetX - G.animX) * lerpSpeed;
+    G.animY += (targetY - G.animY) * lerpSpeed;
+    if (Math.abs(targetX - G.animX) < 0.01) G.animX = targetX;
+    if (Math.abs(targetY - G.animY) < 0.01) G.animY = targetY;
+
+    var speed = Math.abs(targetX - G.animX) + Math.abs(targetY - G.animY);
+    if (speed > 0.05) G.stepPhase += 0.4;
+    else G.stepPhase *= 0.9;
+
+    var gnomeX = ox + G.animX * cell + cell / 2;
+    var gnomeY = oy + G.animY * cell + cell / 2;
+
+    drawGnome(gnomeX, gnomeY, cell);
+  }
+
+  // ========== ДВИЖЕНИЕ ==========
+  function canMove(dir) {
+    var c = G.maze[G.py][G.px];
+    var idx = { up: 0, right: 1, down: 2, left: 3 }[dir];
+    return !c[idx];
+  }
+
+  function move(dir) {
+    if (!G.running) return;
+    if (!canMove(dir)) return;
+    var dx = dir === 'left' ? -1 : dir === 'right' ? 1 : 0;
+    var dy = dir === 'up' ? -1 : dir === 'down' ? 1 : 0;
+    G.px += dx;
+    G.py += dy;
+    G.trail.push({ x: G.px, y: G.py });
+
+    if (G.px === G.gx && G.py === G.gy) {
+      levelComplete();
+      return;
+    }
+  }
+
+  // ========== ЦИКЛ ==========
+  function tick(now) {
+    requestAnimationFrame(tick);
+    if (G.running) {
+      G.elapsed = (now - G.startTime) / 1000;
+
+      if (G.timeLimit > 0) {
+        var left = Math.max(0, G.timeLimit - G.elapsed);
+        timerEl.textContent = fmt(left);
+        if (left < 15) timerEl.classList.add('low');
+        else timerEl.classList.remove('low');
+        if (left <= 0) { levelFailed(); return; }
+      } else {
+        timerEl.textContent = fmt(G.elapsed);
+      }
+
+      draw();
+    }
+  }
+
+  function fmt(s) {
+    var m = Math.floor(s / 60);
+    var sec = Math.floor(s % 60);
+    return m + ':' + (sec < 10 ? '0' + sec : sec);
+  }
+
+  // ========== ЗАВЕРШЕНИЕ ==========
+  function levelComplete() {
+    G.running = false;
+    screenState = 'win';
+
+    if (G.level >= TOTAL_LEVELS) {
+      endTitle.textContent = '🏆 ПОБЕДА!';
+      endText.textContent = 'Ты прошёл все 25 лабиринтов!';
+      nextBtn.textContent = 'В МЕНЮ';
+      nextBtn.onclick = toMenu;
+    } else {
+      endTitle.textContent = 'УРОВЕНЬ ' + G.level + ' ПРОЙДЕН';
+      endText.textContent = 'Время: ' + fmt(G.elapsed);
+      nextBtn.textContent = 'СЛЕДУЮЩИЙ';
+      nextBtn.onclick = function () { startLevel(G.level + 1); };
+    }
+    endScr.classList.add('visible');
+  }
+
+  function levelFailed() {
+    G.running = false;
+    screenState = 'lose';
+    endTitle.textContent = 'ВРЕМЯ ВЫШЛО';
+    endText.textContent = 'Попробуй снова';
+    nextBtn.textContent = 'ЗАНОВО';
+    nextBtn.onclick = function () { startLevel(G.level); };
+    endScr.classList.add('visible');
+  }
+
+  // ========== СТАРТ ==========
+  function startLevel(n) {
+    endScr.classList.remove('visible');
+    screen.classList.add('hidden');
+    gameDiv.classList.add('visible');
+    createLevel(n);
+    resize();
+    G.running = true;
+    G.startTime = performance.now();
+    G.elapsed = 0;
+    screenState = 'playing';
+    draw();
+  }
+
+  function toMenu() {
+    G.running = false;
+    screenState = 'menu';
+    endScr.classList.remove('visible');
+    gameDiv.classList.remove('visible');
+    screen.classList.remove('hidden');
+  }
+
+  // ========== ENTER ==========
+  function handleEnter() {
+    if (screenState === 'menu') {
+      startLevel(1);
+    } else if (screenState === 'win') {
+      if (G.level >= TOTAL_LEVELS) toMenu();
+      else startLevel(G.level + 1);
+    } else if (screenState === 'lose') {
+      startLevel(G.level);
+    }
+  }
+
+  // ========== УПРАВЛЕНИЕ ==========
+  bigBtn.onclick = function () { startLevel(1); };
+  menuBtn.onclick = toMenu;
+
+  var padButtons = document.querySelectorAll('#pad button[data-d]');
+  for (var i = 0; i < padButtons.length; i++) {
+    (function (btn) {
+      var handler = function (e) {
+        e.preventDefault();
+        move(btn.getAttribute('data-d'));
+      };
+      btn.addEventListener('click', handler);
+      btn.addEventListener('touchstart', handler, { passive: false });
+    })(padButtons[i]);
+  }
+
+  document.addEventListener('keydown', function (e) {
+    var k = e.key;
+
+    if (k === 'Enter' || k === 'NumpadEnter') {
+      e.preventDefault();
+      handleEnter();
+      return;
+    }
+
+    if (k === 'Escape') {
+      if (screenState !== 'menu') toMenu();
+      return;
+    }
+
+    if (k === 'ArrowUp' || k === 'w' || k === 'W') { move('up'); e.preventDefault(); }
+    else if (k === 'ArrowDown' || k === 's' || k === 'S') { move('down'); e.preventDefault(); }
+    else if (k === 'ArrowLeft' || k === 'a' || k === 'A') { move('left'); e.preventDefault(); }
+    else if (k === 'ArrowRight' || k === 'd' || k === 'D') { move('right'); e.preventDefault(); }
+  });
+
+  var ts = null;
+  canvas.addEventListener('touchstart', function (e) {
+    if (e.touches.length !== 1) return;
+    ts = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }, { passive: true });
+
+  canvas.addEventListener('touchend', function (e) {
+    if (!ts) return;
+    var t = e.changedTouches[0];
+    var dx = t.clientX - ts.x;
+    var dy = t.clientY - ts.y;
+    ts = null;
+    if (Math.sqrt(dx * dx + dy * dy) < 24) return;
+    if (Math.abs(dx) > Math.abs(dy)) move(dx > 0 ? 'right' : 'left');
+    else move(dy > 0 ? 'down' : 'up');
+  }, { passive: true });
+
+  window.addEventListener('resize', function () {
+    resize();
+    if (G.maze && G.running) draw();
+  });
+
+  requestAnimationFrame(tick);
+
+})();
+</script>
+</body>
+</html>
